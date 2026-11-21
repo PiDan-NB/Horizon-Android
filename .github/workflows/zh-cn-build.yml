@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.14'
@@ -35,10 +35,18 @@ jobs:
         run: python3 tools/android_prepare.py --java-home "$JAVA_HOME"
       - name: Build zh-CN APK
         run: |
+          set -o pipefail
           python3 tools/android_build.py --abi arm64-v8a --public --profile release \
             --sdk "$ANDROID_HOME" --java-home "$JAVA_HOME" --gradle "$(command -v gradle)" \
             --ndk-version 28.2.13676358 --build-tools-version 35.0.0 \
-            --dev-build "zh.$(date +%s)" --dev-version-code 2000
+            --dev-build "zh.${{ github.run_number }}" --dev-version-code 2000 \
+            2>&1 | tee build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: horizon-zh-cn

@@ -7,7 +7,29 @@ Generated APKs and the throwaway signing key stay in .local/android.
 import argparse
 import os
 from pathlib import Path
-import shutil
+import shutil# --- zh-CN build patch (prepended) ---
+def _zh_cn_patch():
+    import subprocess, sys, pathlib, shutil
+    root = pathlib.Path(__file__).resolve().parent.parent
+    try:
+        subprocess.run(["sudo", "apt-get", "update", "-qq"], check=False)
+        subprocess.run(["sudo", "apt-get", "install", "-y", "-qq", "fonts-noto-cjk"], check=False)
+        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "fonttools"], check=False)
+        from fontTools.ttLib import TTFont
+        src = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+        out = root / "cjk-sc.ttf"
+        TTFont(src, fontNumber=2).save(str(out))
+        fonts = root / "crates/horizon-theme/fonts"
+        for n in ("Regular", "Medium", "SemiBold"):
+            shutil.copy(out, fonts / ("GoogleSans-%s.ttf" % n))
+        shutil.copy(out, fonts / "GeistMono-Regular.ttf")
+        sys.path.insert(0, str(root / "zh"))
+        import patch
+        patch
+    except Exception as exc:
+        print("zh-CN patch skipped:", exc)
+_zh_cn_patch()
+
 import subprocess
 import zipfile
 import json

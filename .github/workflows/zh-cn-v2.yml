@@ -1,0 +1,26 @@
+name: zh
+on: {workflow_dispatch: {}}
+jobs:
+  b:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env: {CARGO_BUILD_JOBS: '2', CARGO_TARGET_DIR: '${{ github.workspace }}/.local/ci-target'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.14'}
+      - run: |
+          s="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "$s" --sdk_root="$ANDROID_HOME" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.2.13676358'
+          rustup target add aarch64-linux-android
+      - run: python3 tools/android_prepare.py --java-home "$JAVA_HOME"
+      - run: python3 zh/patch.py
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk python3-fonttools
+          python3 -c "from fontTools.ttLib import TTFont; import shutil,pathlib; TTFont('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',fontNumber=2).save('c.ttf'); f=pathlib.Path('crates/horizon-theme/fonts'); [shutil.copyfile('c.ttf',f/n) for n in ['GoogleSans-Regular.ttf','GoogleSans-Medium.ttf','GoogleSans-SemiBold.ttf','GeistMono-Regular.ttf']]"
+      - run: python3 tools/android_build.py --abi arm64-v8a --public --profile release --sdk "$ANDROID_HOME" --java-home "$JAVA_HOME" --gradle "$(command -v gradle)" --ndk-version 28.2.13676358 --build-tools-version 35.0.0 --dev-build "zh.${{ github.run_number }}" --dev-version-code 2000
+      - uses: actions/upload-artifact@v4
+        with: {name: apk, path: '.local/android/apk/arm64-v8a/horizon-android-public.apk'}
